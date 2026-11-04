@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post Scraper</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1f24; --muted:#6b7280; --line:#e3e6ea; --accent:#2563eb; --bad:#dc2626; --warn:#d97706; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#181b21; --text:#e8eaed; --muted:#9aa1ab; --line:#2a2e36; --accent:#5b8def; --bad:#f87171; --warn:#fbbf24; --ok:#4ade80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 20px; }
+  h2 { font-size:15px; margin:0 0 12px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); }
+  input { flex:1; min-width:140px; }
+  button { cursor:pointer; background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.ghost { background:transparent; color:var(--bad); border-color:var(--line); padding:4px 10px; }
+  button:disabled { opacity:.5; cursor:default; }
+  ul { list-style:none; margin:12px 0 0; padding:0; }
+  li { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
+  .muted { color:var(--muted); font-size:13px; }
+  .err { color:var(--bad); font-size:13px; min-height:18px; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 8px; border-top:1px solid var(--line); vertical-align:top; }
+  td.cap { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  pre { background:var(--bg); border-radius:6px; padding:10px; font-size:12px; overflow:auto; margin:12px 0 0; }
+  a { color:var(--accent); }
+  /* checklist */
+  .checks { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .check { display:flex; align-items:flex-start; gap:10px; font-size:14px; }
+  .dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; }
+  .dot.ok { background:var(--ok); }
+  .dot.bad { background:var(--bad); }
+  .dot.warn { background:var(--warn); }
+  .check-body { flex:1; }
+  .check-title { font-weight:600; }
+  .check-fix { color:var(--muted); font-size:13px; margin-top:2px; }
+  .check-fix code { background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Post Scraper</h1>
+
+  <section id="statusSection">
+    <h2>Setup status</h2>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section>
+    <h2>Run</h2>
+    <div class="row">
+      <button id="run">Fetch latest posts</button>
+      <span class="muted" id="runStatus"></span>
+    </div>
+    <pre id="log" hidden></pre>
+  </section>
+
+  <section>
+    <h2>Profiles</h2>
+    <form class="row" id="addForm">
+      <select id="platform"></select>
+      <input id="username" placeholder="username (without @)" required>
+      <button>Add</button>
+    </form>
+    <ul id="profiles"></ul>
+    <div class="err" id="profileErr"></div>
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <form class="row" id="settingsForm">
+      <label class="muted">Posts per profile</label>
+      <input id="ppp" type="number" min="1" max="50" style="flex:0 0 80px">
+      <input id="apiKey" type="password" placeholder="Bright Data API key" autocomplete="off">
+      <button>Save</button>
+    </form>
+    <div class="muted" id="keyStatus" style="margin-top:8px"></div>
+    <div class="err" id="settingsErr"></div>
+  </section>
+
+  <section>
+    <h2>Saved posts</h2>
+    <table>
+      <thead><tr><th>User</th><th>Caption</th><th>Posted</th><th></th></tr></thead>
+      <tbody id="posts"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function renderChecks(s) {
+  const items = [];
+
+  // 1. Node version
+  items.push({ ok: true, title: 'Node.js is running', fix: null });
+
+  // 2. API key
+  if (s.settings.apiKeyFromEnv) {
+    items.push({ ok: true, title: 'Bright Data API key set via environment variable', fix: null });
+  } else if (s.settings.apiKeySet) {
+    items.push({ ok: true, title: 'Bright Data API key saved', fix: null });
+  } else {
+    items.push({
+      ok: false,
+      title: 'No Bright Data API key',
+      fix: 'Paste your key in Settings → Bright Data API key → Save. Or add <code>BRIGHTDATA_API_KEY=your_key</code> to your <code>.env</code> file and restart.',
+    });
+  }
+
+  // 3. Profiles
+  if (s.profiles.length > 0) {
+    items.push({ ok: true, title: `${s.profiles.length} profile${s.profiles.length > 1 ? 's' : ''} added`, fix: null });
+  } else {
+    items.push({
+      ok: false,
+      title: 'No profiles added yet',
+      fix: 'Go to Profiles below → pick a platform, enter a username → click Add.',
+    });
+  }
+
+  // 4. Ready to run?
+  const ready = s.settings.apiKeySet && s.profiles.length > 0;
+  items.push(
+    ready
+      ? { ok: true, title: 'Ready — click "Fetch latest posts" to run', fix: null }
+      : { ok: 'warn', title: 'Fix the issues above, then you can run a fetch', fix: null }
+  );
+
+  const ul = $('checks');
+  ul.replaceChildren();
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.className = 'check';
+    const dot = document.createElement('span');
+    dot.className = `dot ${item.ok === true ? 'ok' : item.ok === 'warn' ? 'warn' : 'bad'}`;
+    dot.textContent = item.ok === true ? '✓' : item.ok === 'warn' ? '!' : '✗';
+    const body = document.createElement('div');
+    body.className = 'check-body';
+    body.innerHTML = `<div class="check-title">${item.title}</div>${item.fix ? `<div class="check-fix">${item.fix}</div>` : ''}`;
+    li.append(dot, body);
+    ul.append(li);
+  }
+}
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+const LABELS = {};
+
+function renderState(s) {
+  renderChecks(s);
+  const select = $('platform');
+  if (!select.options.length) {
+    for (const p of s.platforms) {
+      LABELS[p.value] = p.label;
+      select.add(new Option(p.label, p.value));
+    }
+  }
+  const list = $('profiles');
+  list.replaceChildren();
+  if (!s.profiles.length) list.innerHTML = '<li class="muted">No profiles yet.</li>';
+  for (const p of s.profiles) {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = `${LABELS[p.platform] || p.platform} / @${p.username}`;
+    const del = document.createElement('button');
+    del.className = 'ghost';
+    del.textContent = 'Remove';
+    del.onclick = async () => renderState(await api(`/api/profiles/${p.id}`, 'DELETE'));
+    li.append(name, del);
+    list.append(li);
+  }
+  $('ppp').value = s.settings.postsPerProfile;
+  $('keyStatus').textContent = s.settings.apiKeyFromEnv
+    ? 'API key is set via the BRIGHTDATA_API_KEY environment variable.'
+    : s.settings.apiKeySet ? 'API key saved. Enter a new one to replace it.' : 'No API key set.';
+  $('run').disabled = s.running || !s.settings.apiKeySet || !s.profiles.length;
+}
+
+async function loadPosts() {
+  const rows = await api('/api/posts');
+  const tbody = $('posts');
+  tbody.replaceChildren();
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const cells = [`${LABELS[r.platform] || r.platform} @${r.username}`, r.caption || '', r.posted_at ? new Date(r.posted_at).toLocaleString() : ''];
+    cells.forEach((text, i) => {
+      const td = document.createElement('td');
+      if (i === 1) td.className = 'cap';
+      td.textContent = text;
+      tr.append(td);
+    });
+    const td = document.createElement('td');
+    if (r.post_url) {
+      const a = document.createElement('a');
+      a.href = r.post_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open';
+      td.append(a);
+    }
+    tr.append(td);
+    tbody.append(tr);
+  }
+}
+
+$('addForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('profileErr').textContent = '';
+  try {
+    renderState(await api('/api/profiles', 'POST', { platform: $('platform').value, username: $('username').value }));
+    $('username').value = '';
+  } catch (err) { $('profileErr').textContent = err.message; }
+};
+
+$('settingsForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('settingsErr').textContent = '';
+  try {
+    renderState(await api('/api/settings', 'PUT', { postsPerProfile: $('ppp').value, apiKey: $('apiKey').value }));
+    $('apiKey').value = '';
+  } catch (err) { $('settingsErr').textContent = err.message; }
+};
+
+$('run').onclick = async () => {
+  $('run').disabled = true;
+  $('runStatus').textContent = 'Running… (Instagram and X can take 1–2 minutes)';
+  $('log').hidden = true;
+  try {
+    const { totals, logs } = await api('/api/run', 'POST');
+    const failed = totals.failed > 0;
+    $('runStatus').textContent = `Done — ${totals.saved} new post${totals.saved !== 1 ? 's' : ''}, ${totals.duplicates} already saved${totals.failed ? `, ${totals.failed} profile${totals.failed !== 1 ? 's' : ''} failed` : ''}.`;
+    // Format logs: highlight errors
+    const logEl = $('log');
+    logEl.replaceChildren();
+    for (const line of logs) {
+      const span = document.createElement('span');
+      span.style.color = line.startsWith('ERROR') ? 'var(--bad)' : line.startsWith('WARN') ? 'var(--warn)' : '';
+      // Make error messages more readable
+      let text = line;
+      if (line.includes('HTTP 401')) text += '\n  → Your API key is wrong or expired. Update it in Settings.';
+      if (line.includes('HTTP 403')) text += '\n  → Bright Data denied access. Check your plan includes this dataset.';
+      if (line.includes('HTTP 404') || line.includes('not found') || line.includes('private')) text += '\n  → This profile is private or doesn\'t exist. Remove it from Profiles.';
+      if (line.includes('Network error')) text += '\n  → Check your internet connection.';
+      if (line.includes('Timed out')) text += '\n  → Bright Data job took too long. Try again in a few minutes.';
+      span.textContent = text + '\n';
+      logEl.append(span);
+    }
+    logEl.hidden = !logs.length;
+    await loadPosts();
+  } catch (err) {
+    $('runStatus').textContent = '';
+    const logEl = $('log');
+    logEl.replaceChildren();
+    const span = document.createElement('span');
+    span.style.color = 'var(--bad)';
+    let msg = `Error: ${err.message}`;
+    if (err.message.includes('No Bright Data API key')) msg += '\n→ Go to Settings and paste your API key.';
+    span.textContent = msg;
+    logEl.append(span);
+    logEl.hidden = false;
+  }
+  renderState(await api('/api/state'));
+};
+
+api('/api/state').then(renderState);
+loadPosts();
+</script>
+</body>
+</html>

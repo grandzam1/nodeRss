@@ -1,0 +1,19 @@
+{
+  "name": "social-post-scraper",
+  "version": "1.0.0",
+  "description": "Fetch recent social posts via Bright Data or Apify and save new ones to Supabase.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/index.js",
+    "ui": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/server.js",
+    "posts": "node --no-warnings=ExperimentalWarning src/list.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0"
+  }
+}
