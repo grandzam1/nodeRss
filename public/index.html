@@ -325,13 +325,18 @@
             btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Running...';
             lucide.createIcons();
             try {
-                const { jobId } = await (await fetch('/api/run', { method: 'POST' })).json();
-                for (;;) {
+                const res = await fetch('/api/run', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                for (let i = 0; i < 150; i++) {
                     await new Promise((r) => setTimeout(r, 2000));
-                    const job = await (await fetch(`/api/jobs/${jobId}`)).json();
-                    if (job.status && job.status !== 'RUNNING') break;
+                    const job = await (await fetch(`/api/jobs/${data.jobId}`)).json();
+                    if (!job || (job.status && job.status !== 'RUNNING')) {
+                        if (job?.status === 'FAILED') feedback(job.error || 'Run failed.', true);
+                        break;
+                    }
                 }
-            } catch { /* still refresh to show current state */ }
+            } catch (err) { feedback(err.message, true); }
             btn.disabled = false;
             btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 mr-2"></i> Fetch Latest Posts Now';
             lucide.createIcons();

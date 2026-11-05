@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Post Scraper</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(214.3 31.8% 91.4%)",
+                        input: "hsl(214.3 31.8% 91.4%)",
+                        ring: "hsl(221.2 83.2% 53.3%)",
+                        background: "hsl(222.8 84% 4.9%)",
+                        foreground: "hsl(210 40% 98%)",
+                        primary: {
+                            DEFAULT: "hsl(210 40% 98%)",
+                            foreground: "hsl(222.2 47.4% 11.2%)",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(217.2 32.6% 17.5%)",
+                            foreground: "hsl(215 20.2% 65.1%)",
+                        },
+                        card: {
+                            DEFAULT: "hsl(222.2 84% 6.5%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-background text-foreground min-h-screen selection:bg-primary selection:text-primary-foreground font-sans antialiased">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 border-b border-slate-800 bg-background/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="terminal" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-semibold text-lg tracking-tight">Social Post Scraper</h1>
+                    <p class="text-xs text-muted-foreground">Production Inngest & Supabase Engine</p>
+                </div>
+            </div>
+            <!-- Status Badge -->
+            <div id="status-badge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="setup-status-text">System Ready</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Action & Control Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Quick Actions Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-base flex items-center gap-2">
+                            <i data-lucide="play-circle" class="w-4 h-4 text-indigo-400"></i> Execution
+                        </h2>
+                        <span class="text-xs text-muted-foreground">Manual & Live</span>
+                    </div>
+                    <p class="text-sm text-muted-foreground mb-6">Trigger immediate scraping tasks or check live system responses instantly.</p>
+                </div>
+                <div class="space-y-3">
+                    <!-- Keep exact IDs / hooks expected by your app logic -->
+                    <button id="run-now-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-indigo-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">
+                        <i data-lucide="zap" class="w-4 h-4 mr-2"></i> Fetch Latest Posts Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profiles Management Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-base flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> Tracked Profiles
+                    </h2>
+                </div>
+                <form id="profile-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-muted-foreground mb-1">Username (without @)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-muted-foreground text-sm">@</span>
+                            <!-- Keep exact input id/name hooks -->
+                            <input type="text" id="profile-input" placeholder="username" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 pl-8 pr-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-800 transition">
+                        <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i> Add Profile
+                    </button>
+                </form>
+                <!-- Profile List Container -->
+                <div id="profiles-list" class="mt-4 flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Smart Settings & Visual Countdown Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-base flex items-center gap-2">
+                            <i data-lucide="settings" class="w-4 h-4 text-indigo-400"></i> Automation Settings
+                        </h2>
+                        <!-- Visual Countdown Pill -->
+                        <div id="countdown-pill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            <i data-lucide="clock" class="w-3 h-3 animate-spin"></i>
+                            <span id="countdown-timer-text">Next: calculating...</span>
+                        </div>
+                    </div>
+
+                    <!-- Keep exact settings form structure -->
+                    <form id="settings-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">Posts per profile</label>
+                            <input type="number" id="posts-per-profile" min="1" max="50" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-sm font-medium">Auto-run schedule</span>
+                            <!-- Custom Switch Toggle Container -->
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="auto-run-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">Interval (5-1440 minutes)</label>
+                            <input type="number" id="interval-minutes" min="5" max="1440" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <p class="text-[11px] text-muted-foreground mt-1">Changes take effect instantly via Inngest.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">API Key</label>
+                            <input type="password" id="api-key-input" placeholder="••••••••••••••••" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                    </form>
+                </div>
+
+                <div class="pt-4 mt-4 border-t border-slate-800/80">
+                    <button type="button" id="save-settings-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-white transition shadow-sm">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Settings
+                    </button>
+                    <!-- Settings Feedback Status -->
+                    <div id="settings-feedback" class="text-center text-xs mt-2 text-muted-foreground h-4"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Saved Posts Data Table Section -->
+        <div class="rounded-xl border border-slate-800 bg-card overflow-hidden shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
+                <h3 class="font-semibold text-base flex items-center gap-2">
+                    <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i> Saved Posts History
+                </h3>
+                <span id="posts-count-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">0 records</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-900/60 text-xs uppercase text-muted-foreground border-b border-slate-800">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">User</th>
+                            <th class="px-6 py-3 font-medium">Caption</th>
+                            <th class="px-6 py-3 font-medium">Posted</th>
+                        </tr>
+                    </thead>
+                    <!-- Keep exact tbody ID hooks for rendering data rows -->
+                    <tbody id="posts-table-body" class="divide-y divide-slate-800/60">
+                        <tr>
+                            <td colspan="3" class="px-6 py-8 text-center text-muted-foreground">No posts loaded yet. Click "Fetch Latest Posts Now" to sync.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Initialize Icons -->
+    <script>
+        lucide.createIcons();
+
+        // Optional enhanced visual timer runner helper demo
+        // (This safely attaches alongside your main project JS runtime bundle without breaking identifiers)
+        window.addEventListener('DOMContentLoaded', () => {
+            const autoRunToggle = document.getElementById('auto-run-toggle');
+            const countdownPill = document.getElementById('countdown-pill');
+            
+            if (autoRunToggle) {
+                autoRunToggle.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        countdownPill.classList.remove('hidden');
+                        countdownPill.classList.add('inline-flex');
+                    } else {
+                        countdownPill.classList.remove('inline-flex');
+                        countdownPill.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -18,9 +18,17 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `https://${req.headers.host}`);
 
-    // /api/run is meant for the scheduler; require a bearer secret so strangers can't burn API quota.
+    // /api/run is meant for the scheduler; require a bearer secret for external callers so
+    // strangers can't burn API quota. Same-origin browser requests (the UI's Run Now button)
+    // are identified by Fetch Metadata/Origin headers instead — the secret can't ship to clients.
     if (url.pathname === '/api/run' && process.env.CRON_SECRET) {
-      if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+      const bearerOk = req.headers.authorization === `Bearer ${process.env.CRON_SECRET}`;
+      const site = req.headers['sec-fetch-site'];
+      const origin = req.headers.origin ?? req.headers.referer ?? '';
+      const sameOrigin =
+        ['same-origin', 'same-site', 'none'].includes(site) ||
+        (() => { try { return new URL(origin).host === req.headers.host; } catch { return false; } })();
+      if (!bearerOk && !sameOrigin) {
         return send(res, 401, { error: 'Unauthorized' });
       }
     }
