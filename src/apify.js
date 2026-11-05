@@ -1,6 +1,6 @@
-import { AuthError, NotFoundError } from './brightdata.js';
+import { AuthError, NotFoundError, QuotaError } from './brightdata.js';
 
-export { AuthError, NotFoundError };
+export { AuthError, NotFoundError, QuotaError };
 
 const BASE = 'https://api.apify.com/v2';
 const RETRY_DELAYS_MS = [2000, 4000, 8000];
@@ -62,7 +62,8 @@ function toRecords(payload) {
   if (list.some(looksUnavailable)) throw new NotFoundError('Profile is private or unavailable.');
   // Some actors wrap posts inside a profile object: { posts: [...] }
   list = list.flatMap((r) => (Array.isArray(r?.posts) ? r.posts : [r]));
-  return list.filter((r) => r && typeof r === 'object' && Object.keys(r).length);
+  // Actors emit placeholder records like { noResults: true } when they find nothing.
+  return list.filter((r) => r && typeof r === 'object' && Object.keys(r).length && !r.noResults);
 }
 
 async function request(token, url, init = {}) {
@@ -81,6 +82,7 @@ async function request(token, url, init = {}) {
     }
 
     if (res.status === 401) throw new AuthError('HTTP 401: check your Apify token.');
+    if (res.status === 402) throw new QuotaError('HTTP 402: Apify quota/credits exhausted.');
     if (res.status === 403) throw new Error('HTTP 403: access denied.');
     if (res.status === 404) throw new NotFoundError('HTTP 404: profile or actor not found.');
     if (res.ok) return res;

@@ -1,6 +1,11 @@
 import { DEFAULT_POSTS_PER_PROFILE } from './config.js';
-import { listProfiles, savePosts, getSetting, seedProfiles } from './db.js';
-import { fetchPosts, AuthError, NotFoundError, provider } from './provider.js';
+import { listProfiles, savePosts, getSetting, seedProfiles, markProfileFailed, markProfileOk } from './db.js';
+import { fetchPosts, AuthError, NotFoundError, QuotaError, provider } from './provider.js';
+
+const RETRY_DELAYS_MS = [2000, 4000, 8000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Auth failures, missing/private profiles and exhausted quotas never get better on retry.
+const isPermanent = (err) => err instanceof AuthError || err instanceof NotFoundError || err instanceof QuotaError;
 
 /** The env var wins over a key saved from the UI. */
 export const getApiKey = async (db) =>
@@ -20,19 +25,34 @@ export async function runScrape(db, log = () => {}) {
   const totals = { profiles: profiles.length, saved: 0, duplicates: 0, failed: 0 };
 
   for (const profile of profiles) {
-    try {
-      const records = await fetchPosts(apiKey, profile, postsPerProfile);
-      const { saved, duplicates, skipped } = await savePosts(db, records, profile.platform, profile.username);
-      totals.saved += saved;
-      totals.duplicates += duplicates;
-      log('INFO', `${saved} new, ${duplicates} duplicate${skipped ? `, ${skipped} skipped` : ''}.`, profile);
-    } catch (err) {
-      if (err instanceof NotFoundError) {
-        log('WARN', `Skipped: ${err.message}`, profile);
+    let failure = null;
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      try {
+        const records = await fetchPosts(apiKey, profile, postsPerProfile);
+        const { saved, duplicates, skipped } = await savePosts(db, records, profile.platform, profile.username);
+        totals.saved += saved;
+        totals.duplicates += duplicates;
+        log('INFO', `${saved} new, ${duplicates} duplicate${skipped ? `, ${skipped} skipped` : ''}.`, profile);
+        await markProfileOk(db, profile);
+        failure = null;
+        break;
+      } catch (err) {
+        failure = err;
+        if (isPermanent(err) || attempt === RETRY_DELAYS_MS.length) break;
+        const which = attempt === 0 ? 'Initial attempt' : `Retry ${attempt}/${RETRY_DELAYS_MS.length}`;
+        log('WARN', `${which} failed (${err.message}); retrying in ${RETRY_DELAYS_MS[attempt] / 1000}s.`, profile);
+        await sleep(RETRY_DELAYS_MS[attempt]);
+      }
+    }
+
+    if (failure) {
+      await markProfileFailed(db, profile);
+      if (failure instanceof NotFoundError) {
+        log('WARN', `Skipped: ${failure.message}`, profile);
       } else {
-        log('ERROR', err.message, profile);
+        log('ERROR', failure.message, profile);
         totals.failed++;
-        if (err instanceof AuthError) break;
+        if (failure instanceof AuthError || failure instanceof QuotaError) break;
       }
     }
   }

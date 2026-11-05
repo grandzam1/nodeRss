@@ -24,4 +24,4 @@ export const provider = getProvider();
 export const fetchPosts = provider.module.fetchPosts;
 export const platformList = provider.module.platformList;
 export const normalizePlatform = provider.module.normalizePlatform;
-export const { AuthError, NotFoundError } = provider.module;
+export const { AuthError, NotFoundError, QuotaError } = provider.module;

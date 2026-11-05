@@ -117,6 +117,34 @@ export async function deleteProfile(db, id) {
   if (error) fail(error);
 }
 
+/** Bump fail_count and flag the profile for review. Never throws. */
+export async function markProfileFailed(db, { platform, username }) {
+  try {
+    const { data } = await db
+      .from('watch_profiles')
+      .select('fail_count')
+      .eq('platform', platform)
+      .eq('handle', username)
+      .maybeSingle();
+    await db
+      .from('watch_profiles')
+      .update({ fail_count: (data?.fail_count ?? 0) + 1, needs_review: true })
+      .eq('platform', platform)
+      .eq('handle', username);
+  } catch {}
+}
+
+/** Reset fail_count / needs_review after a successful scrape. Never throws. */
+export async function markProfileOk(db, { platform, username }) {
+  try {
+    await db
+      .from('watch_profiles')
+      .update({ fail_count: 0, needs_review: false, baselined: true })
+      .eq('platform', platform)
+      .eq('handle', username);
+  } catch {}
+}
+
 export async function getSetting(db, key, fallback = null) {
   const { data, error } = await db.from('settings').select('value').eq('key', key).maybeSingle();
   if (error) {

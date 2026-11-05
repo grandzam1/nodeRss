@@ -24,7 +24,7 @@
   ul { list-style:none; margin:12px 0 0; padding:0; }
   li { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
   .muted { color:var(--muted); font-size:13px; }
-  .err { color:var(--bad); font-size:13px; min-height:18px; margin-top:8px; }
+  .err { color:var(--bad); font-size:13px; min-height:18px; margin-top:8px; white-space:pre-line; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:6px 8px; border-top:1px solid var(--line); vertical-align:top; }
   td.cap { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -77,10 +77,17 @@
     <form class="row" id="settingsForm">
       <label class="muted">Posts per profile</label>
       <input id="ppp" type="number" min="1" max="50" style="flex:0 0 80px">
-      <input id="apiKey" type="password" placeholder="Bright Data API key" autocomplete="off">
+      <input id="apiKey" type="password" placeholder="API key" autocomplete="off">
       <button>Save</button>
     </form>
+    <div class="row" style="margin-top:10px">
+      <label class="muted"><input id="schedOn" type="checkbox" style="min-width:0;flex:none"> Auto-run every</label>
+      <input id="schedMins" type="number" min="1" max="1440" style="flex:0 0 80px">
+      <label class="muted">minutes</label>
+      <span class="muted" id="schedStatus"></span>
+    </div>
     <div class="muted" id="keyStatus" style="margin-top:8px"></div>
+    <div class="muted" id="settingsOk" style="margin-top:4px;color:var(--ok)"></div>
     <div class="err" id="settingsErr"></div>
   </section>
 
@@ -103,15 +110,17 @@ function renderChecks(s) {
   items.push({ ok: true, title: 'Node.js is running', fix: null });
 
   // 2. API key
+  const prov = s.settings.provider === 'apify' ? 'Apify' : 'Bright Data';
+  const envVar = s.settings.provider === 'apify' ? 'APIFY_TOKEN' : 'BRIGHTDATA_API_KEY';
   if (s.settings.apiKeyFromEnv) {
-    items.push({ ok: true, title: 'Bright Data API key set via environment variable', fix: null });
+    items.push({ ok: true, title: `${prov} API key set via environment variable`, fix: null });
   } else if (s.settings.apiKeySet) {
-    items.push({ ok: true, title: 'Bright Data API key saved', fix: null });
+    items.push({ ok: true, title: `${prov} API key saved`, fix: null });
   } else {
     items.push({
       ok: false,
-      title: 'No Bright Data API key',
-      fix: 'Paste your key in Settings → Bright Data API key → Save. Or add <code>BRIGHTDATA_API_KEY=your_key</code> to your <code>.env</code> file and restart.',
+      title: `No ${prov} API key`,
+      fix: `Paste your key in Settings → API key → Save. Or add <code>${envVar}=your_key</code> to your <code>.env</code> file and restart.`,
     });
   }
 
@@ -165,6 +174,7 @@ const LABELS = {};
 
 function renderState(s) {
   renderChecks(s);
+  const envVar = s.settings.provider === 'apify' ? 'APIFY_TOKEN' : 'BRIGHTDATA_API_KEY';
   const select = $('platform');
   if (!select.options.length) {
     for (const p of s.platforms) {
@@ -187,8 +197,14 @@ function renderState(s) {
     list.append(li);
   }
   $('ppp').value = s.settings.postsPerProfile;
+  $('apiKey').placeholder = `${s.settings.provider === 'apify' ? 'Apify' : 'Bright Data'} API key`;
+  $('schedOn').checked = s.settings.scheduleEnabled;
+  $('schedMins').value = s.settings.intervalMinutes;
+  $('schedStatus').textContent = s.settings.scheduleEnabled
+    ? `next run ${s.settings.nextRunAt ? new Date(s.settings.nextRunAt).toLocaleTimeString() : 'soon'}`
+    : 'scheduler off';
   $('keyStatus').textContent = s.settings.apiKeyFromEnv
-    ? 'API key is set via the BRIGHTDATA_API_KEY environment variable.'
+    ? `API key is set via the ${envVar} environment variable.`
     : s.settings.apiKeySet ? 'API key saved. Enter a new one to replace it.' : 'No API key set.';
   $('run').disabled = s.running || !s.settings.apiKeySet || !s.profiles.length;
 }
@@ -229,10 +245,37 @@ $('addForm').onsubmit = async (e) => {
 $('settingsForm').onsubmit = async (e) => {
   e.preventDefault();
   $('settingsErr').textContent = '';
+  $('settingsOk').textContent = '';
+  const btn = $('settingsForm').querySelector('button');
+  btn.disabled = true;
   try {
-    renderState(await api('/api/settings', 'PUT', { postsPerProfile: $('ppp').value, apiKey: $('apiKey').value }));
+    renderState(await api('/api/settings', 'PUT', {
+      postsPerProfile: $('ppp').value,
+      apiKey: $('apiKey').value,
+      scheduleEnabled: $('schedOn').checked,
+      intervalMinutes: $('schedMins').value,
+    }));
     $('apiKey').value = '';
-  } catch (err) { $('settingsErr').textContent = err.message; }
+    $('settingsOk').textContent = 'Saved.';
+    setTimeout(() => { $('settingsOk').textContent = ''; }, 4000);
+  } catch (err) {
+    let msg = err.message;
+    if (/settings|PGRST|does not exist/i.test(msg))
+      msg += '\n→ The settings table may be missing. In Supabase SQL editor run: create table if not exists settings (key text primary key, value text not null);';
+    if (/401|403|key/i.test(msg)) msg += '\n→ Check your Supabase/API credentials in .env.';
+    $('settingsErr').textContent = msg;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+const pollJob = async (jobId) => {
+  for (;;) {
+    const job = await api(`/api/jobs/${jobId}`);
+    if (job.status === 'COMPLETED') return job;
+    if (job.status === 'FAILED') throw new Error(job.error || 'Job failed');
+    await new Promise((r) => setTimeout(r, 2000));
+  }
 };
 
 $('run').onclick = async () => {
@@ -240,7 +283,8 @@ $('run').onclick = async () => {
   $('runStatus').textContent = 'Running… (Instagram and X can take 1–2 minutes)';
   $('log').hidden = true;
   try {
-    const { totals, logs } = await api('/api/run', 'POST');
+    const { jobId } = await api('/api/run', 'POST');
+    const { totals, logs } = await pollJob(jobId);
     const failed = totals.failed > 0;
     $('runStatus').textContent = `Done — ${totals.saved} new post${totals.saved !== 1 ? 's' : ''}, ${totals.duplicates} already saved${totals.failed ? `, ${totals.failed} profile${totals.failed !== 1 ? 's' : ''} failed` : ''}.`;
     // Format logs: highlight errors

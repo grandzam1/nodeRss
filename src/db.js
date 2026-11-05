@@ -29,3 +29,8 @@ export const deleteProfile = adapter.deleteProfile;
 export const getSetting = adapter.getSetting;
 export const setSetting = adapter.setSetting;
 export const listPosts = adapter.listPosts;
+
+// Failure tracking hooks — implemented by adapters that support them (watch_*).
+const noop = async () => {};
+export const markProfileFailed = adapter.markProfileFailed ?? noop;
+export const markProfileOk = adapter.markProfileOk ?? noop;

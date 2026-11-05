@@ -5,6 +5,7 @@ const POLL_MAX_MS = 5 * 60_000;
 
 export class AuthError extends Error {}
 export class NotFoundError extends Error {}
+export class QuotaError extends Error {}
 
 /**
  * One entry per supported platform. To add a platform, add an entry here
@@ -84,6 +85,7 @@ async function request(apiKey, url, init = {}) {
     }
 
     if (res.status === 401) throw new AuthError('HTTP 401: check your Bright Data API key.');
+    if (res.status === 402) throw new QuotaError('HTTP 402: Bright Data quota/credits exhausted.');
     if (res.status === 403) throw new Error('HTTP 403: access denied.');
     if (res.status === 404) throw new NotFoundError('HTTP 404: profile or dataset not found.');
     if (res.ok) return res;

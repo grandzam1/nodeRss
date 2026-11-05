@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { PUBLIC_DIR } from './config.js';
 import { handleApi } from './api.js';
+import { startScheduler, scheduleState } from './scheduler.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '127.0.0.1'; // local only: this UI can start scrapes and stores your API key
@@ -33,3 +34,8 @@ createServer(async (req, res) => {
     send(res, 400, { error: err.message });
   }
 }).listen(PORT, HOST, () => console.log(`UI running at http://localhost:${PORT}`));
+
+// Local timer: fires /api/run on the saved interval (enable it in Settings).
+startScheduler(() => handleApi('POST', '/api/run')).then((s) => {
+  if (s.enabled) console.log(`Scheduler on: every ${s.minutes} min, next at ${scheduleState().nextRunAt}`);
+});
