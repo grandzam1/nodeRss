@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/index.js",
     "ui": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/server.js",
-    "posts": "node --no-warnings=ExperimentalWarning src/list.js"
+    "posts": "node --no-warnings=ExperimentalWarning src/list.js",
+    "inngest:serve": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/inngest/serve.js",
+    "test": "node --test --experimental-test-module-mocks --no-warnings=ExperimentalWarning test/*.test.js"
   },
   "engines": {
     "node": ">=22.5"
@@ -15,7 +17,8 @@
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
-    "@trigger.dev/sdk": "4.8.3"
+    "@trigger.dev/sdk": "4.8.3",
+    "inngest": "^4.26.2"
   },
   "devDependencies": {
     "@trigger.dev/build": "4.8.3"
