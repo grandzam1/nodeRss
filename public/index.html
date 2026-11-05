@@ -1,329 +1,344 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="dark">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Post Scraper</title>
-<style>
-  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1f24; --muted:#6b7280; --line:#e3e6ea; --accent:#2563eb; --bad:#dc2626; --warn:#d97706; --ok:#16a34a; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1115; --card:#181b21; --text:#e8eaed; --muted:#9aa1ab; --line:#2a2e36; --accent:#5b8def; --bad:#f87171; --warn:#fbbf24; --ok:#4ade80; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, sans-serif; }
-  main { max-width:860px; margin:0 auto; padding:24px 16px 64px; }
-  h1 { font-size:22px; margin:0 0 20px; }
-  h2 { font-size:15px; margin:0 0 12px; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); }
-  input { flex:1; min-width:140px; }
-  button { cursor:pointer; background:var(--accent); color:#fff; border-color:var(--accent); }
-  button.ghost { background:transparent; color:var(--bad); border-color:var(--line); padding:4px 10px; }
-  button:disabled { opacity:.5; cursor:default; }
-  ul { list-style:none; margin:12px 0 0; padding:0; }
-  li { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
-  .muted { color:var(--muted); font-size:13px; }
-  .err { color:var(--bad); font-size:13px; min-height:18px; margin-top:8px; white-space:pre-line; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:left; padding:6px 8px; border-top:1px solid var(--line); vertical-align:top; }
-  td.cap { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  pre { background:var(--bg); border-radius:6px; padding:10px; font-size:12px; overflow:auto; margin:12px 0 0; }
-  a { color:var(--accent); }
-  /* checklist */
-  .checks { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
-  .check { display:flex; align-items:flex-start; gap:10px; font-size:14px; }
-  .dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; }
-  .dot.ok { background:var(--ok); }
-  .dot.bad { background:var(--bad); }
-  .dot.warn { background:var(--warn); }
-  .check-body { flex:1; }
-  .check-title { font-weight:600; }
-  .check-fix { color:var(--muted); font-size:13px; margin-top:2px; }
-  .check-fix code { background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:12px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Post Scraper</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(214.3 31.8% 91.4%)",
+                        input: "hsl(214.3 31.8% 91.4%)",
+                        ring: "hsl(221.2 83.2% 53.3%)",
+                        background: "hsl(222.8 84% 4.9%)",
+                        foreground: "hsl(210 40% 98%)",
+                        primary: {
+                            DEFAULT: "hsl(210 40% 98%)",
+                            foreground: "hsl(222.2 47.4% 11.2%)",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(217.2 32.6% 17.5%)",
+                            foreground: "hsl(215 20.2% 65.1%)",
+                        },
+                        card: {
+                            DEFAULT: "hsl(222.2 84% 6.5%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
-<main>
-  <h1>Post Scraper</h1>
+<body class="bg-background text-foreground min-h-screen selection:bg-primary selection:text-primary-foreground font-sans antialiased">
 
-  <section id="statusSection">
-    <h2>Setup status</h2>
-    <ul class="checks" id="checks"></ul>
-  </section>
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 border-b border-slate-800 bg-background/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="terminal" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-semibold text-lg tracking-tight">Social Post Scraper</h1>
+                    <p class="text-xs text-muted-foreground">Production Inngest & Supabase Engine</p>
+                </div>
+            </div>
+            <!-- Status Badge -->
+            <div id="status-badge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="setup-status-text">System Ready</span>
+            </div>
+        </div>
+    </header>
 
-  <section>
-    <h2>Run</h2>
-    <div class="row">
-      <button id="run">Fetch latest posts</button>
-      <span class="muted" id="runStatus"></span>
-    </div>
-    <pre id="log" hidden></pre>
-  </section>
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-  <section>
-    <h2>Profiles</h2>
-    <form class="row" id="addForm">
-      <select id="platform"></select>
-      <input id="username" placeholder="username (without @)" required>
-      <button>Add</button>
-    </form>
-    <ul id="profiles"></ul>
-    <div class="err" id="profileErr"></div>
-  </section>
+        <!-- Action & Control Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Quick Actions Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-base flex items-center gap-2">
+                            <i data-lucide="play-circle" class="w-4 h-4 text-indigo-400"></i> Execution
+                        </h2>
+                        <span class="text-xs text-muted-foreground">Manual & Live</span>
+                    </div>
+                    <p class="text-sm text-muted-foreground mb-6">Trigger immediate scraping tasks or check live system responses instantly.</p>
+                </div>
+                <div class="space-y-3">
+                    <!-- Keep exact IDs / hooks expected by your app logic -->
+                    <button id="run-now-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-indigo-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">
+                        <i data-lucide="zap" class="w-4 h-4 mr-2"></i> Fetch Latest Posts Now
+                    </button>
+                </div>
+            </div>
 
-  <section>
-    <h2>Settings</h2>
-    <form class="row" id="settingsForm">
-      <label class="muted">Posts per profile</label>
-      <input id="ppp" type="number" min="1" max="50" style="flex:0 0 80px">
-      <input id="apiKey" type="password" placeholder="API key" autocomplete="off">
-      <button>Save</button>
-    </form>
-    <div class="row" style="margin-top:10px">
-      <label class="muted"><input id="schedOn" type="checkbox" style="min-width:0;flex:none"> Auto-run every</label>
-      <input id="schedMins" type="number" min="5" max="1440" step="1" required aria-label="Auto-run interval in minutes" style="flex:0 0 80px">
-      <label class="muted">minutes (5–1440; click Save to apply)</label>
-      <span class="muted" id="schedStatus"></span>
-    </div>
-    <div class="muted" id="keyStatus" style="margin-top:8px"></div>
-    <div class="muted" id="settingsOk" style="margin-top:4px;color:var(--ok)"></div>
-    <div class="err" id="settingsErr"></div>
-  </section>
+            <!-- Profiles Management Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-base flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> Tracked Profiles
+                    </h2>
+                </div>
+                <form id="profile-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-muted-foreground mb-1">Username (without @)</label>
+                        <select id="platform-select" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground mb-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"></select>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-muted-foreground text-sm">@</span>
+                            <!-- Keep exact input id/name hooks -->
+                            <input type="text" id="profile-input" placeholder="username" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 pl-8 pr-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-800 transition">
+                        <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i> Add Profile
+                    </button>
+                </form>
+                <!-- Profile List Container -->
+                <div id="profiles-list" class="mt-4 flex flex-wrap gap-2"></div>
+            </div>
 
-  <section>
-    <h2>Saved posts</h2>
-    <table>
-      <thead><tr><th>User</th><th>Caption</th><th>Posted</th><th></th></tr></thead>
-      <tbody id="posts"></tbody>
-    </table>
-  </section>
-</main>
+            <!-- Smart Settings & Visual Countdown Card -->
+            <div class="rounded-xl border border-slate-800 bg-card p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-base flex items-center gap-2">
+                            <i data-lucide="settings" class="w-4 h-4 text-indigo-400"></i> Automation Settings
+                        </h2>
+                        <!-- Visual Countdown Pill -->
+                        <div id="countdown-pill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            <i data-lucide="clock" class="w-3 h-3 animate-spin"></i>
+                            <span id="countdown-timer-text">Next: calculating...</span>
+                        </div>
+                    </div>
 
-<script>
-const $ = (id) => document.getElementById(id);
+                    <!-- Keep exact settings form structure -->
+                    <form id="settings-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">Posts per profile</label>
+                            <input type="number" id="posts-per-profile" min="1" max="50" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
 
-function renderChecks(s) {
-  const items = [];
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-sm font-medium">Auto-run schedule</span>
+                            <!-- Custom Switch Toggle Container -->
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="auto-run-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
 
-  // 1. Node version
-  items.push({ ok: true, title: 'Node.js is running', fix: null });
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">Interval (5-1440 minutes)</label>
+                            <input type="number" id="interval-minutes" min="5" max="1440" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <p class="text-[11px] text-muted-foreground mt-1">Changes take effect instantly via Inngest.</p>
+                        </div>
 
-  // 2. API key
-  const prov = s.settings.provider === 'apify' ? 'Apify' : 'Bright Data';
-  const envVar = s.settings.provider === 'apify' ? 'APIFY_TOKEN' : 'BRIGHTDATA_API_KEY';
-  if (s.settings.apiKeyFromEnv) {
-    items.push({ ok: true, title: `${prov} API key set via environment variable`, fix: null });
-  } else if (s.settings.apiKeySet) {
-    items.push({ ok: true, title: `${prov} API key saved`, fix: null });
-  } else {
-    items.push({
-      ok: false,
-      title: `No ${prov} API key`,
-      fix: `Paste your key in Settings → API key → Save. Or add <code>${envVar}=your_key</code> to your <code>.env</code> file and restart.`,
-    });
-  }
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1">API Key</label>
+                            <input type="password" id="api-key-input" placeholder="••••••••••••••••" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                    </form>
+                </div>
 
-  // 3. Profiles
-  if (s.profiles.length > 0) {
-    items.push({ ok: true, title: `${s.profiles.length} profile${s.profiles.length > 1 ? 's' : ''} added`, fix: null });
-  } else {
-    items.push({
-      ok: false,
-      title: 'No profiles added yet',
-      fix: 'Go to Profiles below → pick a platform, enter a username → click Add.',
-    });
-  }
+                <div class="pt-4 mt-4 border-t border-slate-800/80">
+                    <button type="button" id="save-settings-btn" class="w-full inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-white transition shadow-sm">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Settings
+                    </button>
+                    <!-- Settings Feedback Status -->
+                    <div id="settings-feedback" class="text-center text-xs mt-2 text-muted-foreground h-4"></div>
+                </div>
+            </div>
 
-  // 4. Ready to run?
-  const ready = s.settings.apiKeySet && s.profiles.length > 0;
-  items.push(
-    ready
-      ? { ok: true, title: 'Ready — click "Fetch latest posts" to run', fix: null }
-      : { ok: 'warn', title: 'Fix the issues above, then you can run a fetch', fix: null }
-  );
+        </div>
 
-  const ul = $('checks');
-  ul.replaceChildren();
-  for (const item of items) {
-    const li = document.createElement('li');
-    li.className = 'check';
-    const dot = document.createElement('span');
-    dot.className = `dot ${item.ok === true ? 'ok' : item.ok === 'warn' ? 'warn' : 'bad'}`;
-    dot.textContent = item.ok === true ? '✓' : item.ok === 'warn' ? '!' : '✗';
-    const body = document.createElement('div');
-    body.className = 'check-body';
-    body.innerHTML = `<div class="check-title">${item.title}</div>${item.fix ? `<div class="check-fix">${item.fix}</div>` : ''}`;
-    li.append(dot, body);
-    ul.append(li);
-  }
-}
+        <!-- Saved Posts Data Table Section -->
+        <div class="rounded-xl border border-slate-800 bg-card overflow-hidden shadow-sm">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
+                <h3 class="font-semibold text-base flex items-center gap-2">
+                    <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i> Saved Posts History
+                </h3>
+                <span id="posts-count-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">0 records</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-900/60 text-xs uppercase text-muted-foreground border-b border-slate-800">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Platform</th>
+                            <th class="px-6 py-3 font-medium">User</th>
+                            <th class="px-6 py-3 font-medium">Caption</th>
+                            <th class="px-6 py-3 font-medium">Posted</th>
+                        </tr>
+                    </thead>
+                    <!-- Keep exact tbody ID hooks for rendering data rows -->
+                    <tbody id="posts-table-body" class="divide-y divide-slate-800/60">
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-muted-foreground">No posts loaded yet. Click "Fetch Latest Posts Now" to sync.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-async function api(path, method = 'GET', body) {
-  const res = await fetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
-}
+    </main>
 
-const LABELS = {};
+    <!-- Client runtime: wires every preserved ID to the /api/* backend -->
+    <script>
+        lucide.createIcons();
 
-function renderState(s) {
-  renderChecks(s);
-  const envVar = s.settings.provider === 'apify' ? 'APIFY_TOKEN' : 'BRIGHTDATA_API_KEY';
-  const select = $('platform');
-  if (!select.options.length) {
-    for (const p of s.platforms) {
-      LABELS[p.value] = p.label;
-      select.add(new Option(p.label, p.value));
-    }
-  }
-  const list = $('profiles');
-  list.replaceChildren();
-  if (!s.profiles.length) list.innerHTML = '<li class="muted">No profiles yet.</li>';
-  for (const p of s.profiles) {
-    const li = document.createElement('li');
-    const name = document.createElement('span');
-    name.textContent = `${LABELS[p.platform] || p.platform} / @${p.username}`;
-    const del = document.createElement('button');
-    del.className = 'ghost';
-    del.textContent = 'Remove';
-    del.onclick = async () => renderState(await api(`/api/profiles/${p.id}`, 'DELETE'));
-    li.append(name, del);
-    list.append(li);
-  }
-  $('ppp').value = s.settings.postsPerProfile;
-  $('apiKey').placeholder = `${s.settings.provider === 'apify' ? 'Apify' : 'Bright Data'} API key`;
-  $('schedOn').checked = s.settings.scheduleEnabled;
-  $('schedMins').value = s.settings.intervalMinutes;
-  $('schedStatus').textContent = `Saved: ${s.settings.intervalMinutes} minutes. ` + (s.settings.scheduleEnabled
-    ? `Next due: ${new Date(s.settings.nextRunAt).toLocaleString()} (starts within about a minute, subject to queue).`
-    : 'Auto-run paused.');
-  $('keyStatus').textContent = s.settings.apiKeyFromEnv
-    ? `API key is set via the ${envVar} environment variable.`
-    : s.settings.apiKeySet ? 'API key saved. Enter a new one to replace it.' : 'No API key set.';
-  $('run').disabled = s.running || !s.settings.apiKeySet || !s.profiles.length;
-}
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-async function loadPosts() {
-  const rows = await api('/api/posts');
-  const tbody = $('posts');
-  tbody.replaceChildren();
-  for (const r of rows) {
-    const tr = document.createElement('tr');
-    const cells = [`${LABELS[r.platform] || r.platform} @${r.username}`, r.caption || '', r.posted_at ? new Date(r.posted_at).toLocaleString() : ''];
-    cells.forEach((text, i) => {
-      const td = document.createElement('td');
-      if (i === 1) td.className = 'cap';
-      td.textContent = text;
-      tr.append(td);
-    });
-    const td = document.createElement('td');
-    if (r.post_url) {
-      const a = document.createElement('a');
-      a.href = r.post_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open';
-      td.append(a);
-    }
-    tr.append(td);
-    tbody.append(tr);
-  }
-}
+        let state = null;
+        let nextRunAt = null;
 
-$('addForm').onsubmit = async (e) => {
-  e.preventDefault();
-  $('profileErr').textContent = '';
-  try {
-    renderState(await api('/api/profiles', 'POST', { platform: $('platform').value, username: $('username').value }));
-    $('username').value = '';
-  } catch (err) { $('profileErr').textContent = err.message; }
-};
+        function setStatus(text, ok = true) {
+            $('setup-status-text').textContent = text;
+            const badge = $('status-badge');
+            badge.className = `inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${ok
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`;
+        }
 
-$('settingsForm').onsubmit = async (e) => {
-  e.preventDefault();
-  $('settingsErr').textContent = '';
-  $('settingsOk').textContent = '';
-  const btn = $('settingsForm').querySelector('button');
-  btn.disabled = true;
-  try {
-    const minutes = Number($('schedMins').value);
-    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) throw new Error('Interval must be 5-1440 whole minutes.');
-    renderState(await api('/api/settings', 'PUT', {
-      postsPerProfile: $('ppp').value,
-      apiKey: $('apiKey').value,
-      scheduleEnabled: $('schedOn').checked,
-      intervalMinutes: $('schedMins').value,
-    }));
-    $('apiKey').value = '';
-    $('settingsOk').textContent = 'Settings saved. Auto-run uses the saved schedule; click Save after any change.';
-    setTimeout(() => { $('settingsOk').textContent = ''; }, 4000);
-  } catch (err) {
-    let msg = err.message;
-    if (/settings|PGRST|does not exist/i.test(msg))
-      msg += '\n→ The settings table may be missing. In Supabase SQL editor run: create table if not exists settings (key text primary key, value text not null);';
-    if (/401|403|key/i.test(msg)) msg += '\n→ Check your Supabase/API credentials in .env.';
-    $('settingsErr').textContent = msg;
-  } finally {
-    btn.disabled = false;
-  }
-};
+        function feedback(text, isError = false) {
+            const el = $('settings-feedback');
+            el.textContent = text;
+            el.className = `text-center text-xs mt-2 h-4 ${isError ? 'text-rose-400' : 'text-muted-foreground'}`;
+            if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
+        }
 
-const pollJob = async (jobId) => {
-  for (;;) {
-    const job = await api(`/api/jobs/${jobId}`);
-    if (job.status === 'COMPLETED') return job;
-    if (job.status === 'FAILED') throw new Error(job.error || 'Job failed');
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-};
+        function updateCountdown() {
+            const pill = $('countdown-pill');
+            if (!nextRunAt || !(state?.settings?.scheduleEnabled)) {
+                pill.classList.add('hidden'); pill.classList.remove('inline-flex');
+                return;
+            }
+            pill.classList.remove('hidden'); pill.classList.add('inline-flex');
+            const ms = new Date(nextRunAt).getTime() - Date.now();
+            if (ms <= 0) { $('countdown-timer-text').textContent = 'Next: due now'; return; }
+            const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+            const h = Math.floor(m / 60);
+            $('countdown-timer-text').textContent = h > 0
+                ? `Next: ${h}h ${m % 60}m`
+                : `Next: ${m}m ${String(s).padStart(2, '0')}s`;
+        }
+        setInterval(updateCountdown, 1000);
 
-$('run').onclick = async () => {
-  $('run').disabled = true;
-  $('runStatus').textContent = 'Running… (Instagram and X can take 1–2 minutes)';
-  $('log').hidden = true;
-  try {
-    const { jobId } = await api('/api/run', 'POST');
-    const { totals, logs } = await pollJob(jobId);
-    const failed = totals.failed > 0;
-    $('runStatus').textContent = `Done — ${totals.saved} new post${totals.saved !== 1 ? 's' : ''}, ${totals.duplicates} already saved${totals.failed ? `, ${totals.failed} profile${totals.failed !== 1 ? 's' : ''} failed` : ''}.`;
-    // Format logs: highlight errors
-    const logEl = $('log');
-    logEl.replaceChildren();
-    for (const line of logs) {
-      const span = document.createElement('span');
-      span.style.color = line.startsWith('ERROR') ? 'var(--bad)' : line.startsWith('WARN') ? 'var(--warn)' : '';
-      // Make error messages more readable
-      let text = line;
-      if (line.includes('HTTP 401')) text += '\n  → Your API key is wrong or expired. Update it in Settings.';
-      if (line.includes('HTTP 403')) text += '\n  → Bright Data denied access. Check your plan includes this dataset.';
-      if (line.includes('HTTP 404') || line.includes('not found') || line.includes('private')) text += '\n  → This profile is private or doesn\'t exist. Remove it from Profiles.';
-      if (line.includes('Network error')) text += '\n  → Check your internet connection.';
-      if (line.includes('Timed out')) text += '\n  → Bright Data job took too long. Try again in a few minutes.';
-      span.textContent = text + '\n';
-      logEl.append(span);
-    }
-    logEl.hidden = !logs.length;
-    await loadPosts();
-  } catch (err) {
-    $('runStatus').textContent = '';
-    const logEl = $('log');
-    logEl.replaceChildren();
-    const span = document.createElement('span');
-    span.style.color = 'var(--bad)';
-    let msg = `Error: ${err.message}`;
-    if (err.message.includes('No Bright Data API key')) msg += '\n→ Go to Settings and paste your API key.';
-    span.textContent = msg;
-    logEl.append(span);
-    logEl.hidden = false;
-  }
-  renderState(await api('/api/state'));
-};
+        function render() {
+            const s = state.settings;
+            $('posts-per-profile').value = s.postsPerProfile;
+            $('auto-run-toggle').checked = s.scheduleEnabled;
+            $('interval-minutes').value = s.intervalMinutes;
+            nextRunAt = s.nextRunAt;
+            updateCountdown();
 
-api('/api/state').then(renderState);
-loadPosts();
-</script>
+            $('platform-select').innerHTML = state.platforms
+                .map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+            $('profiles-list').innerHTML = state.profiles.length
+                ? state.profiles.map((p) => `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-slate-800 text-slate-200 border border-slate-700">
+                        <span class="text-muted-foreground">${esc(p.platform)}</span>@${esc(p.username)}
+                        <button data-profile-id="${p.id}" class="profile-remove ml-0.5 text-slate-400 hover:text-rose-400" title="Remove">&times;</button>
+                    </span>`).join('')
+                : '<span class="text-xs text-muted-foreground">No profiles tracked yet.</span>';
+
+            setStatus(state.running ? 'Run in progress' : 'System Ready', true);
+        }
+
+        async function loadPosts() {
+            const posts = await (await fetch('/api/posts')).json();
+            $('posts-count-badge').textContent = `${posts.length} records`;
+            $('posts-table-body').innerHTML = posts.length
+                ? posts.map((p) => `
+                    <tr class="hover:bg-slate-900/40">
+                        <td class="px-6 py-3 text-muted-foreground">${esc(p.platform)}</td>
+                        <td class="px-6 py-3 font-medium"><a class="text-indigo-400 hover:underline" href="${esc(p.post_url)}" target="_blank" rel="noopener">@${esc(p.username)}</a></td>
+                        <td class="px-6 py-3 max-w-md truncate text-slate-300">${esc(p.caption)}</td>
+                        <td class="px-6 py-3 text-muted-foreground whitespace-nowrap">${p.posted_at ? new Date(p.posted_at).toLocaleString() : '—'}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="4" class="px-6 py-8 text-center text-muted-foreground">No posts loaded yet. Click "Fetch Latest Posts Now" to sync.</td></tr>';
+        }
+
+        async function refresh() {
+            state = await (await fetch('/api/state')).json();
+            render();
+            await loadPosts();
+        }
+
+        $('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = $('profile-input').value.trim().replace(/^@/, '');
+            if (!username) return;
+            try {
+                const res = await fetch('/api/profiles', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platform: $('platform-select').value, username }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error || 'Failed to add profile');
+                $('profile-input').value = '';
+                state = await res.json(); render();
+            } catch (err) { feedback(err.message, true); }
+        });
+
+        $('profiles-list').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.profile-remove');
+            if (!btn) return;
+            await fetch(`/api/profiles/${btn.dataset.profileId}`, { method: 'DELETE' });
+            state = await (await fetch('/api/state')).json(); render();
+        });
+
+        $('save-settings-btn').addEventListener('click', async () => {
+            const body = {
+                postsPerProfile: Number($('posts-per-profile').value),
+                scheduleEnabled: $('auto-run-toggle').checked,
+                intervalMinutes: Number($('interval-minutes').value),
+            };
+            const apiKey = $('api-key-input').value.trim();
+            if (apiKey) body.apiKey = apiKey;
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) throw new Error((await res.json()).error || 'Failed to save');
+                state = await res.json(); render();
+                $('api-key-input').value = '';
+                feedback('Settings saved.');
+            } catch (err) { feedback(err.message, true); }
+        });
+
+        $('run-now-btn').addEventListener('click', async () => {
+            const btn = $('run-now-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Running...';
+            lucide.createIcons();
+            try {
+                const { jobId } = await (await fetch('/api/run', { method: 'POST' })).json();
+                for (;;) {
+                    await new Promise((r) => setTimeout(r, 2000));
+                    const job = await (await fetch(`/api/jobs/${jobId}`)).json();
+                    if (job.status && job.status !== 'RUNNING') break;
+                }
+            } catch { /* still refresh to show current state */ }
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4 mr-2"></i> Fetch Latest Posts Now';
+            lucide.createIcons();
+            await refresh();
+        });
+
+        refresh().catch((err) => setStatus(err.message, false));
+    </script>
 </body>
 </html>
