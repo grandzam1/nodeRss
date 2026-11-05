@@ -25,19 +25,3 @@ create table if not exists settings (
 
 -- If using the existing watch_* schema instead (STORAGE=watch), only this
 -- settings table is needed; watch_profiles/watch_posts are used as-is.
-
--- Scheduler: change '*/15' to '*/30' etc. via cron.alter_job — no redeploy needed.
--- Requires the pg_cron and pg_net extensions (enable in Database > Extensions).
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
-select cron.schedule(
-  'social-post-scraper',
-  '*/15 * * * *',
-  $$
-  select net.http_post(
-    url := 'https://YOUR-APP.vercel.app/api/run',
-    headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET')
-  );
-  $$
-);

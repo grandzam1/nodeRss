@@ -1,24 +1,28 @@
 import { platformList, provider } from './provider.js';
-import { openDb, listProfiles, addProfile, deleteProfile, listPosts, setSetting, getSetting } from './db.js';
+import { openDb, listProfiles, addProfile, deleteProfile, listPosts, setSetting } from './db.js';
 import { getApiKey, getPostsPerProfile } from './scrape.js';
-import { refreshSchedule, scheduleState, DEFAULT_INTERVAL_MINUTES } from './scheduler.js';
+import { refreshSchedule } from './scheduler.js';
+import { readSchedule, saveSchedule, validateSchedule } from './schedule-store.js';
 import { submitRun, getRun, runnerName, isBusy } from './jobs/index.js';
 
-const state = async (db) => ({
-  platforms: platformList(),
-  profiles: await listProfiles(db),
-  settings: {
-    postsPerProfile: await getPostsPerProfile(db),
-    apiKeySet: Boolean(await getApiKey(db)),
-    apiKeyFromEnv: Boolean(process.env[provider.envKey]),
-    provider: provider.name,
-    scheduleEnabled: String(await getSetting(db, 'scheduleEnabled', 'false')) === 'true',
-    intervalMinutes: Number(await getSetting(db, 'intervalMinutes', DEFAULT_INTERVAL_MINUTES)) || DEFAULT_INTERVAL_MINUTES,
-    nextRunAt: scheduleState().nextRunAt,
-    runner: runnerName,
-  },
-  running: isBusy(),
-});
+const state = async (db) => {
+  const schedule = await readSchedule(db);
+  return {
+    platforms: platformList(),
+    profiles: await listProfiles(db),
+    settings: {
+      postsPerProfile: await getPostsPerProfile(db),
+      apiKeySet: Boolean(await getApiKey(db)),
+      apiKeyFromEnv: Boolean(process.env[provider.envKey]),
+      provider: provider.name,
+      scheduleEnabled: schedule.auto_run_enabled,
+      intervalMinutes: schedule.interval_minutes,
+      nextRunAt: schedule.next_run_at,
+      runner: runnerName,
+    },
+    running: isBusy(),
+  };
+};
 
 /** Shared handler for every /api/* route. Returns { status, data }. */
 export async function handleApi(method, pathname, body = {}) {
@@ -40,17 +44,13 @@ export async function handleApi(method, pathname, body = {}) {
 
   if (method === 'PUT' && pathname === '/api/settings') {
     const { postsPerProfile, apiKey, scheduleEnabled, intervalMinutes } = body;
+    validateSchedule({ scheduleEnabled, intervalMinutes });
     if (postsPerProfile !== undefined) {
       const n = Number(postsPerProfile);
       if (!Number.isInteger(n) || n < 1 || n > 50) throw new Error('Posts per profile must be 1-50.');
       await setSetting(db, 'postsPerProfile', n);
     }
-    if (intervalMinutes !== undefined) {
-      const m = Number(intervalMinutes);
-      if (!Number.isInteger(m) || m < 1 || m > 1440) throw new Error('Interval must be 1-1440 minutes.');
-      await setSetting(db, 'intervalMinutes', m);
-    }
-    if (scheduleEnabled !== undefined) await setSetting(db, 'scheduleEnabled', scheduleEnabled ? 'true' : 'false');
+    if (scheduleEnabled !== undefined || intervalMinutes !== undefined) await saveSchedule({ scheduleEnabled, intervalMinutes }, db);
     if (typeof apiKey === 'string' && apiKey.trim()) await setSetting(db, provider.settingsKey, apiKey.trim());
     await refreshSchedule();
     return { status: 200, data: await state(db) };

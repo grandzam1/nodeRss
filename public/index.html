@@ -82,8 +82,8 @@
     </form>
     <div class="row" style="margin-top:10px">
       <label class="muted"><input id="schedOn" type="checkbox" style="min-width:0;flex:none"> Auto-run every</label>
-      <input id="schedMins" type="number" min="1" max="1440" style="flex:0 0 80px">
-      <label class="muted">minutes</label>
+      <input id="schedMins" type="number" min="5" max="1440" step="1" required aria-label="Auto-run interval in minutes" style="flex:0 0 80px">
+      <label class="muted">minutes (5–1440; click Save to apply)</label>
       <span class="muted" id="schedStatus"></span>
     </div>
     <div class="muted" id="keyStatus" style="margin-top:8px"></div>
@@ -200,9 +200,9 @@ function renderState(s) {
   $('apiKey').placeholder = `${s.settings.provider === 'apify' ? 'Apify' : 'Bright Data'} API key`;
   $('schedOn').checked = s.settings.scheduleEnabled;
   $('schedMins').value = s.settings.intervalMinutes;
-  $('schedStatus').textContent = s.settings.scheduleEnabled
-    ? `next run ${s.settings.nextRunAt ? new Date(s.settings.nextRunAt).toLocaleTimeString() : 'soon'}`
-    : 'scheduler off';
+  $('schedStatus').textContent = `Saved: ${s.settings.intervalMinutes} minutes. ` + (s.settings.scheduleEnabled
+    ? `Next due: ${new Date(s.settings.nextRunAt).toLocaleString()} (starts within about a minute, subject to queue).`
+    : 'Auto-run paused.');
   $('keyStatus').textContent = s.settings.apiKeyFromEnv
     ? `API key is set via the ${envVar} environment variable.`
     : s.settings.apiKeySet ? 'API key saved. Enter a new one to replace it.' : 'No API key set.';
@@ -249,6 +249,8 @@ $('settingsForm').onsubmit = async (e) => {
   const btn = $('settingsForm').querySelector('button');
   btn.disabled = true;
   try {
+    const minutes = Number($('schedMins').value);
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) throw new Error('Interval must be 5-1440 whole minutes.');
     renderState(await api('/api/settings', 'PUT', {
       postsPerProfile: $('ppp').value,
       apiKey: $('apiKey').value,
@@ -256,7 +258,7 @@ $('settingsForm').onsubmit = async (e) => {
       intervalMinutes: $('schedMins').value,
     }));
     $('apiKey').value = '';
-    $('settingsOk').textContent = 'Saved.';
+    $('settingsOk').textContent = 'Settings saved. Auto-run uses the saved schedule; click Save after any change.';
     setTimeout(() => { $('settingsOk').textContent = ''; }, 4000);
   } catch (err) {
     let msg = err.message;

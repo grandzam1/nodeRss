@@ -1,27 +1,41 @@
-import { openDb, getSetting } from './db.js';
+import { readSchedule, advanceSchedule, scheduleDue, production, DEFAULT_INTERVAL_MINUTES } from './schedule-store.js';
 
-export const DEFAULT_INTERVAL_MINUTES = 15;
+export { DEFAULT_INTERVAL_MINUTES };
 
 let timer = null;
 let nextRunAt = null;
 let tick = null;
+let processing = false;
 
 /** Read schedule settings and (re)arm the timer. Call after settings change. */
 export async function refreshSchedule() {
   if (timer) {
     clearInterval(timer);
     timer = null;
-    nextRunAt = null;
   }
-  const db = openDb();
-  const enabled = String(await getSetting(db, 'scheduleEnabled', 'false')) === 'true';
-  const minutes = Math.min(1440, Math.max(1, Number(await getSetting(db, 'intervalMinutes', DEFAULT_INTERVAL_MINUTES)) || DEFAULT_INTERVAL_MINUTES));
-  if (enabled && tick) {
-    timer = setInterval(() => tick().catch(() => {}), minutes * 60_000);
+  const schedule = await readSchedule();
+  nextRunAt = schedule.next_run_at;
+  const local = !production() && (process.env.JOB_RUNNER ?? 'local') === 'local';
+  if (local && schedule.auto_run_enabled && tick) {
+    timer = setInterval(async () => {
+      if (processing) return;
+      processing = true;
+      try {
+        const current = await readSchedule();
+        if (scheduleDue(current)) {
+          await tick();
+          await advanceSchedule(current);
+          nextRunAt = (await readSchedule()).next_run_at;
+        }
+      } catch (error) {
+        console.error('Local scheduler:', error.message);
+      } finally {
+        processing = false;
+      }
+    }, 1000);
     timer.unref?.();
-    nextRunAt = Date.now() + minutes * 60_000;
   }
-  return { enabled, minutes };
+  return { enabled: schedule.auto_run_enabled, minutes: schedule.interval_minutes };
 }
 
 /** Start the scheduler. `tick` is called on every interval (e.g. an /api/run). */
@@ -32,5 +46,5 @@ export async function startScheduler(tickFn) {
 
 export const scheduleState = () => ({
   timerRunning: Boolean(timer),
-  nextRunAt: nextRunAt ? new Date(nextRunAt).toISOString() : null,
+  nextRunAt,
 });

@@ -4,6 +4,7 @@ import { openDb, listProfiles, seedProfiles } from '../db.js';
 import { getApiKey, getPostsPerProfile, scrapeProfile } from '../scrape.js';
 import { provider } from '../provider.js';
 import { createLogger } from '../logger.js';
+import { readSchedule, advanceSchedule, scheduleDue, scheduleEventId, scheduledRunAllowed } from '../schedule-store.js';
 
 /**
  * Inngest version of the old Trigger.dev `scrape-posts` task.
@@ -18,7 +19,11 @@ export const scrapePosts = inngest.createFunction(
     concurrency: 1, // one scrape at a time, like the local runner's "already in progress" guard
     retries: 2,
   },
-  async ({ step }) => {
+  async ({ step, event }) => {
+    if (event.data?.scheduled) {
+      const allowed = await step.run('validate-schedule', async () => scheduledRunAllowed(await readSchedule(), event.data));
+      if (!allowed) return { totals: { profiles: 0, saved: 0, duplicates: 0, failed: 0 }, logs: ['Scheduled run invalidated by settings change.'] };
+    }
     const { profiles, postsPerProfile } = await step.run('load-profiles', async () => {
       const db = openDb();
       if (!(await getApiKey(db))) throw new NonRetriableError(`No ${provider.label} API key set.`);
@@ -54,4 +59,24 @@ export const scrapePosts = inngest.createFunction(
   },
 );
 
-export const functions = [scrapePosts];
+export async function dispatchSchedule({ step }) {
+  const schedule = await step.run('read-due-schedule', async () => {
+    const current = await readSchedule();
+    return scheduleDue(current) ? current : null;
+  });
+  if (!schedule) return { dispatched: false };
+  await step.sendEvent('dispatch-scheduled-scrape', {
+    id: scheduleEventId(schedule),
+    name: SCRAPE_EVENT,
+    data: { scheduled: true, revision: schedule.revision, dueAt: schedule.next_run_at },
+  });
+  await step.run('advance-schedule', () => advanceSchedule(schedule));
+  return { dispatched: true };
+}
+
+export const scheduleDispatcher = inngest.createFunction(
+  { id: 'scrape-schedule-dispatcher', triggers: [{ cron: '* * * * *' }], concurrency: 1, retries: 5 },
+  dispatchSchedule,
+);
+
+export const functions = [scrapePosts, scheduleDispatcher];

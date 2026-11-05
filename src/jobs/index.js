@@ -5,7 +5,9 @@
  *   'trigger' — DEPRECATED, replaced by 'inngest'. Submit to Trigger.dev; a deployed task calls executeScrapeJob().
  */
 async function getRunner() {
-  const name = (process.env.JOB_RUNNER ?? 'local').trim().toLowerCase();
+  const production = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+  const name = (process.env.JOB_RUNNER ?? (production ? 'inngest' : 'local')).trim().toLowerCase();
+  if (production && name !== 'inngest') throw new Error('Production requires JOB_RUNNER=inngest.');
   if (name === 'local') return { name, module: await import('./local.js') };
   if (name === 'inngest') return { name, module: await import('./inngest.js') };
   if (name === 'trigger') return { name, module: await import('./trigger.js') };

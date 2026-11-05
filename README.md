@@ -31,14 +31,14 @@ Set these in `.env`, or paste the key into the UI settings (it is saved under th
 
 ## Supabase & Vercel
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor (creates `posts`, `profiles`, `settings`, and a `pg_cron` job).
+1. Run `supabase/schema.sql` in the Supabase SQL editor (creates `posts`, `profiles`, and `settings`). Then apply `supabase/schedule.sql` for the typed schedule table and RPCs. For `STORAGE=watch`, keep the existing watch tables and ensure `settings` exists before applying the schedule migration. The migration preserves saved schedule settings and unschedules only the legacy cron job named `social-post-scraper`; review and approve this database change before applying it.
 2. Set env vars (locally in `.env`, on Vercel in project settings):
    - `STORAGE=sqlite|supabase` (auto-detected if unset: Supabase when its keys exist, else SQLite)
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (only for `STORAGE=supabase`)
    - `SCRAPER_PROVIDER` + `BRIGHTDATA_API_KEY` or `APIFY_TOKEN`
    - `CRON_SECRET` — protects `POST /api/run` so only the scheduler can trigger it.
 3. Deploy to Vercel (the `api/[...path].js` catch-all serves all `/api/*` routes; `public/` is served statically). `maxDuration` is 300s.
-4. To change the schedule: `select cron.alter_job((select jobid from cron.job where jobname='social-post-scraper'), schedule := '*/30 * * * *');`
+4. Configure Inngest below, then use the Auto-run toggle and interval input and click Save. Intervals must be whole minutes between 5 and 1440. Changing settings needs no redeployment.
 
 ## Background jobs (Inngest)
 
@@ -56,7 +56,9 @@ Set up on Vercel:
 3. Sync the app: in Inngest Cloud, Apps → Sync new app → `https://YOUR-APP.vercel.app/api/inngest`. (Or install the Inngest Vercel integration to sync on every deploy.)
 4. Click "Run now" in the UI, or send a `scrape/requested` event from the Inngest dashboard.
 
-The Supabase `pg_cron` job keeps working unchanged: it still calls `POST /api/run`, which now hands the work to Inngest.
+In production, Supabase is the schedule source of truth and Inngest runs `scrape-schedule-dispatcher` every minute. A due schedule emits a deterministic-ID `scrape/requested` event using durable event delivery, then advances the due time with a revision/due-time compare-and-swap. Retries use the same event ID; page loads never register schedules. The existing `scrape-posts` function serializes manual and scheduled scrapes with concurrency 1. Disabling or changing settings invalidates queued events from the old revision; already-started scrapes finish normally. Times shown in the UI are due times: execution may start about a minute later, plus queue delay. The heartbeat still runs when Auto-run is disabled but does not dispatch scrapes.
+
+Production defaults to `JOB_RUNNER=inngest` and rejects other runners or SQLite scheduling. Use `STORAGE=supabase` or `STORAGE=watch` with server-only Supabase credentials. Local `JOB_RUNNER=local` retains a server-side timer (not a browser timer), with SQLite or Supabase settings. Do not run the local timer against the same database as a live Inngest scheduler. Sync both Inngest functions after the initial deployment. Inspect `cron.job` in Supabase to confirm that no other legacy job calls this app; the migration intentionally does not remove unrelated jobs or extensions.
 
 Run it locally:
 
