@@ -1,13 +1,14 @@
 import { openDb, storageName, getSetting, setSetting } from './db.js';
+import { ApiError } from './errors.js';
 
 export const MIN_INTERVAL_MINUTES = 5;
 export const DEFAULT_INTERVAL_MINUTES = 15;
 export const production = () => process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
 export function validateSchedule({ scheduleEnabled, intervalMinutes }) {
-  if (scheduleEnabled !== undefined && typeof scheduleEnabled !== 'boolean') throw new Error('Auto-run must be a boolean.');
+  if (scheduleEnabled !== undefined && typeof scheduleEnabled !== 'boolean') throw new ApiError(400, 'Auto-run must be a boolean.');
   if (intervalMinutes !== undefined && (!Number.isInteger(Number(intervalMinutes)) || Number(intervalMinutes) < MIN_INTERVAL_MINUTES || Number(intervalMinutes) > 1440)) {
-    throw new Error('Interval must be 5-1440 whole minutes.');
+    throw new ApiError(400, 'Interval must be 5-1440 whole minutes.');
   }
 }
 

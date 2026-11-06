@@ -1,3 +1,5 @@
+import { ApiError } from './errors.js';
+
 const BASE = 'https://api.brightdata.com/datasets/v3';
 const RETRY_DELAYS_MS = [2000, 4000, 8000];
 const POLL_EVERY_MS = 5000;
@@ -43,7 +45,7 @@ export const platformList = () =>
 
 export const normalizePlatform = (name) => {
   const key = String(name ?? '').trim().toLowerCase();
-  if (!PLATFORMS[key]) throw new Error(`Unsupported platform "${name}".`);
+  if (!PLATFORMS[key]) throw new ApiError(400, `Unsupported platform "${name}".`);
   return key === 'twitter' ? 'x' : key;
 };
 

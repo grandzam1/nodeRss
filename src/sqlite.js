@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { loadSeedProfiles } from './config.js';
 import { normalizePlatform } from './provider.js';
 import { normalize } from './normalize.js';
+import { ApiError } from './errors.js';
 
 const DB_PATH = fileURLToPath(new URL('../data/posts.sqlite3', import.meta.url));
 
@@ -74,14 +75,14 @@ export const listProfiles = async (db) => db.prepare('SELECT * FROM profiles ORD
 export async function addProfile(db, platform, username) {
   platform = normalizePlatform(platform);
   username = String(username ?? '').trim().replace(/^@/, '');
-  if (!platform || !username) throw new Error('Platform and username are required.');
+  if (!platform || !username) throw new ApiError(400, 'Platform and username are required.');
   const r = db
     .prepare('INSERT OR IGNORE INTO profiles (platform, username) VALUES (?, ?)')
     .run(platform, username);
-  if (r.changes === 0) throw new Error('That profile already exists.');
+  if (r.changes === 0) throw new ApiError(409, 'That profile already exists.');
 }
 
-export const deleteProfile = async (db, id) => db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
+export const deleteProfile = async (db, id) => db.prepare('DELETE FROM profiles WHERE id = ?').run(id).changes > 0;
 
 export async function getSetting(db, key, fallback = null) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

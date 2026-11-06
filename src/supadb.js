@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { loadSeedProfiles } from './config.js';
 import { normalizePlatform } from './provider.js';
 import { normalize } from './normalize.js';
+import { ApiError } from './errors.js';
 
 /** Returns a Supabase client. Requires SUPABASE_URL + a secret key (service_role or sb_secret). */
 export function openDb() {
@@ -60,15 +61,16 @@ export async function listProfiles(db) {
 export async function addProfile(db, platform, username) {
   platform = normalizePlatform(platform);
   username = String(username ?? '').trim().replace(/^@/, '');
-  if (!platform || !username) throw new Error('Platform and username are required.');
+  if (!platform || !username) throw new ApiError(400, 'Platform and username are required.');
   const { error } = await db.from('profiles').insert({ platform, username });
-  if (error?.code === '23505') throw new Error('That profile already exists.');
+  if (error?.code === '23505') throw new ApiError(409, 'That profile already exists.');
   if (error) throw new Error(`Supabase: ${error.message}`);
 }
 
 export async function deleteProfile(db, id) {
-  const { error } = await db.from('profiles').delete().eq('id', id);
+  const { data, error } = await db.from('profiles').delete().eq('id', id).select('id');
   if (error) throw new Error(`Supabase: ${error.message}`);
+  return (data?.length ?? 0) > 0;
 }
 
 export async function getSetting(db, key, fallback = null) {

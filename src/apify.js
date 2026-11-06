@@ -1,4 +1,5 @@
 import { AuthError, NotFoundError, QuotaError } from './brightdata.js';
+import { ApiError } from './errors.js';
 
 export { AuthError, NotFoundError, QuotaError };
 
@@ -39,7 +40,7 @@ export const platformList = () =>
 
 export const normalizePlatform = (name) => {
   const key = String(name ?? '').trim().toLowerCase();
-  if (!PLATFORMS[key]) throw new Error(`Unsupported platform "${name}".`);
+  if (!PLATFORMS[key]) throw new ApiError(400, `Unsupported platform "${name}".`);
   return key === 'twitter' ? 'x' : key;
 };
 

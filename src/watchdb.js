@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { loadSeedProfiles } from './config.js';
 import { normalizePlatform } from './provider.js';
 import { normalize, pick, firstOf } from './normalize.js';
+import { ApiError } from './errors.js';
 
 const PROFILE_URLS = {
   tiktok: (u) => `https://www.tiktok.com/@${u}`,
@@ -103,18 +104,19 @@ export async function listProfiles(db) {
 export async function addProfile(db, platform, username) {
   platform = normalizePlatform(platform);
   username = String(username ?? '').trim().replace(/^@/, '');
-  if (!platform || !username) throw new Error('Platform and username are required.');
+  if (!platform || !username) throw new ApiError(400, 'Platform and username are required.');
   const url = PROFILE_URLS[platform]?.(username) ?? null;
   const { error } = await db
     .from('watch_profiles')
     .insert({ platform, handle: username, url, active: true, baselined: false });
-  if (error?.code === '23505') throw new Error('That profile already exists.');
+  if (error?.code === '23505') throw new ApiError(409, 'That profile already exists.');
   if (error) fail(error);
 }
 
 export async function deleteProfile(db, id) {
-  const { error } = await db.from('watch_profiles').update({ active: false }).eq('id', id);
+  const { data, error } = await db.from('watch_profiles').update({ active: false }).eq('id', id).select('id');
   if (error) fail(error);
+  return (data?.length ?? 0) > 0;
 }
 
 /** Bump fail_count and flag the profile for review. Never throws. */
