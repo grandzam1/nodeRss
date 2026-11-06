@@ -18,3 +18,13 @@ export const createLogger = (sink = console.log) => (level, msg, p) => {
   writeLogFile(line);
   sink(line);
 };
+
+/**
+ * Structured event log for server-side diagnostics (API errors, job failures).
+ * Writes one JSON line to the log file and console. Never include secrets in `fields`.
+ */
+export const logEvent = (level, event, fields = {}) => {
+  const line = JSON.stringify({ time: new Date().toISOString(), level, event, ...fields });
+  writeLogFile(line);
+  (level === 'ERROR' ? console.error : console.log)(line);
+};

@@ -9,6 +9,8 @@
     "ui": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/server.js",
     "posts": "node --no-warnings=ExperimentalWarning src/list.js",
     "inngest:serve": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/inngest/serve.js",
+    "build": "tailwindcss -i src/styles.css -o public/styles.css --minify",
+    "build:css": "tailwindcss -i src/styles.css -o public/styles.css --watch",
     "test": "node --test --experimental-test-module-mocks --no-warnings=ExperimentalWarning test/*.test.js"
   },
   "engines": {
@@ -21,6 +23,7 @@
     "inngest": "^4.26.2"
   },
   "devDependencies": {
-    "@trigger.dev/build": "4.8.3"
+    "@trigger.dev/build": "4.8.3",
+    "tailwindcss": "^3.4.19"
   }
 }

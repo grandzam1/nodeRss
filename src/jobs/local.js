@@ -1,5 +1,6 @@
 import { executeScrapeJob } from './runner.js';
 import { createJob, finishJob, getJob } from './jobStore.js';
+import { logEvent } from '../logger.js';
 
 let running = false;
 
@@ -10,7 +11,10 @@ export async function submitRun() {
   const id = createJob();
   executeScrapeJob()
     .then(({ totals, logs }) => finishJob(id, { status: 'COMPLETED', totals, logs }))
-    .catch((err) => finishJob(id, { status: 'FAILED', error: err.message }))
+    .catch((err) => {
+      finishJob(id, { status: 'FAILED', error: err.message });
+      logEvent('ERROR', 'job_failed', { jobId: id, runner: 'local', error: err.message });
+    })
     .finally(() => { running = false; });
   return { jobId: id };
 }
