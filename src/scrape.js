@@ -9,7 +9,9 @@ const isPermanent = (err) => err instanceof AuthError || err instanceof NotFound
 
 /** The env var wins over a key saved from the UI. */
 export const getApiKey = async (db) =>
-  (process.env[provider.envKey] || (await getSetting(db, provider.settingsKey)) || '').trim();
+  provider.requiresApiKey === false
+    ? ''
+    : (process.env[provider.envKey] || (await getSetting(db, provider.settingsKey)) || '').trim();
 
 export const getPostsPerProfile = async (db) =>
   Number(await getSetting(db, 'postsPerProfile', DEFAULT_POSTS_PER_PROFILE)) || DEFAULT_POSTS_PER_PROFILE;
@@ -59,7 +61,7 @@ export async function scrapeProfile(db, profile, { apiKey, postsPerProfile, log 
 /** Scrape every saved profile. `log(level, message, profile?)` receives progress. */
 export async function runScrape(db, log = () => {}) {
   const apiKey = await getApiKey(db);
-  if (!apiKey) throw new Error(`No ${provider.label} API key set.`);
+  if (provider.requiresApiKey !== false && !apiKey) throw new Error(`No ${provider.label} API key set.`);
 
   await seedProfiles(db);
   const profiles = await listProfiles(db);

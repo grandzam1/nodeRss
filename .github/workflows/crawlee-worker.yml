@@ -1,0 +1,48 @@
+name: Crawlee scraper worker
+run-name: Crawlee scrape ${{ inputs.job_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Supabase scraper_jobs UUID created by the Vercel runner
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crawlee-scraper-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NODE_ENV: production
+      STORAGE: ${{ vars.CRAWLEE_DEV_STORAGE }}
+      SCRAPER_PROVIDER: crawlee
+      SUPABASE_URL: ${{ secrets.CRAWLEE_DEV_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CRAWLEE_DEV_SUPABASE_SERVICE_ROLE_KEY }}
+      GITHUB_JOB_ID: ${{ inputs.job_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate development-only configuration
+        shell: bash
+        run: |
+          test -n "$GITHUB_JOB_ID" || { echo 'GITHUB_JOB_ID is required'; exit 1; }
+          test -n "$SUPABASE_URL" || { echo 'Missing CRAWLEE_DEV_SUPABASE_URL secret'; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo 'Missing CRAWLEE_DEV_SUPABASE_SERVICE_ROLE_KEY secret'; exit 1; }
+          case "$STORAGE" in supabase|watch) ;; *) echo 'Set CRAWLEE_DEV_STORAGE to supabase or watch'; exit 1 ;; esac
+      - run: npm ci
+      - name: Install Chromium and Linux browser libraries
+        run: npx playwright install --with-deps chromium
+      - run: npm test
+      - name: Run shared scraper and persist job results
+        run: node src/jobs/github-actions-worker.js

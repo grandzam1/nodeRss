@@ -26,8 +26,8 @@ Almost always a key/environment mismatch: `INNGEST_EVENT_KEY` and `INNGEST_SIGNI
 **`INNGEST_SIGNING_KEY is not set — run status cannot be checked.`**
 Against Inngest Cloud the signing key is required to read run status back. Set it, or use `INNGEST_DEV=1` locally.
 
-**`Production requires JOB_RUNNER=inngest.`**
-On Vercel (`VERCEL=1` or `NODE_ENV=production`) the only allowed runner is `inngest`. Fix or remove the `JOB_RUNNER` env var — the production default is already `inngest`.
+**`Production requires JOB_RUNNER=inngest or JOB_RUNNER=github-actions.`**
+The default remains `inngest`. For `github-actions`, configure the Vercel Preview GitHub dispatch variables, add the `scraper_jobs` migration to a development Supabase project, and configure the dedicated `CRAWLEE_DEV_*` GitHub secret/variable names as described in README. Do not point development tests at production Supabase.
 
 **`Job not found. Local run history is cleared when the app restarts`**
 The `local` runner keeps job state in memory. Restarting `npm run ui` loses it — start a new run.
@@ -48,9 +48,11 @@ Expected. The dispatcher cron runs every minute and UI times are *due* times —
 
 ## Configuration
 
-**`Unknown SCRAPER_PROVIDER "…"`** — must be `brightdata` or `apify`.
+**`Unknown SCRAPER_PROVIDER "…"`** — must be `brightdata`, `apify`, or `crawlee`.
 **`Unknown STORAGE "…"`** — must be `sqlite`, `supabase`, or `watch`.
 **`No Bright Data/Apify API key set.`** — set the env key or save one via UI Settings.
+
+**Crawlee returns no posts or fails on login/bot-check pages** — the adapter only reads public browser-visible DOM; it has no account session, proxy, or CAPTCHA solver. Recheck the profile in a logged-out browser and compare its current markup. For a real development worker, verify `CRAWLEE_DEV_SUPABASE_URL`, `CRAWLEE_DEV_SUPABASE_SERVICE_ROLE_KEY`, and `CRAWLEE_DEV_STORAGE` are configured, and apply `supabase/github-runner.sql` to that same development project.
 
 **401 on write endpoints (`POST /api/profiles`, `DELETE /api/profiles/:id`, `PUT /api/settings`, `POST /api/run`)**
 Production requires `Authorization: Bearer $ADMIN_TOKEN`. The UI asks for the token once and keeps it in `sessionStorage` (per-tab). `POST /api/run` additionally accepts `Bearer $CRON_SECRET` — that's for the cron caller only and does not unlock the other endpoints.

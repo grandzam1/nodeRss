@@ -1,13 +1,15 @@
 import * as brightdata from './brightdata.js';
 import * as apify from './apify.js';
+import * as crawlee from './crawlee.js';
 
 const PROVIDERS = {
-  brightdata: { name: 'brightdata', label: 'Bright Data', envKey: 'BRIGHTDATA_API_KEY', settingsKey: 'apiKey', module: brightdata },
-  apify: { name: 'apify', label: 'Apify', envKey: 'APIFY_TOKEN', settingsKey: 'apifyKey', module: apify },
+  brightdata: { name: 'brightdata', label: 'Bright Data', envKey: 'BRIGHTDATA_API_KEY', settingsKey: 'apiKey', requiresApiKey: true, module: brightdata },
+  apify: { name: 'apify', label: 'Apify', envKey: 'APIFY_TOKEN', settingsKey: 'apifyKey', requiresApiKey: true, module: apify },
+  crawlee: { name: 'crawlee', label: 'Crawlee + Playwright', envKey: null, settingsKey: null, requiresApiKey: false, module: crawlee },
 };
 
 /**
- * SCRAPER_PROVIDER picks the backend ('brightdata' or 'apify').
+ * SCRAPER_PROVIDER picks the data source ('brightdata', 'apify', or 'crawlee').
  * If unset, it falls back to whichever env key is present, then Bright Data.
  */
 function getProvider() {

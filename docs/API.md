@@ -82,11 +82,11 @@ Returns updated state. Enabling the schedule also refreshes the in-process/dispa
 
 ### `POST /api/run`
 
-Body ignored. Starts a scrape via the configured `JOB_RUNNER` (`local` in-process or `inngest`). In production accepts `Bearer $ADMIN_TOKEN` or `Bearer $CRON_SECRET`; `CRON_SECRET` does **not** unlock the other write endpoints. Returns `409` when a run is already in progress (local runner), `502` when the job service rejects the submit. Internally the local scheduler calls this with an `internal` flag that bypasses auth.
+Body ignored. Starts a scrape via the configured `JOB_RUNNER` (`local`, `inngest`, or optional `github-actions`). The GitHub Actions runner requires the `scraper_jobs` Supabase migration and dispatch configuration. In production accepts `Bearer $ADMIN_TOKEN` or `Bearer $CRON_SECRET`; `CRON_SECRET` does **not** unlock the other write endpoints. Returns `409` when a run is already in progress, `502` when the job service rejects the submit. Internally the local scheduler calls this with an `internal` flag that bypasses auth.
 
 ### `GET /api/jobs/:id`
 
-`{ "id": "…", "status": "RUNNING"|"COMPLETED"|"FAILED", "totals": {"profiles":0,"saved":0,"duplicates":0,"failed":0}|null, "logs": ["…"], "error": "…"|null }`. Returns `404` when the job is unknown — note the `local` runner keeps history in memory, so restarts lose it. `502` means the job service (e.g. Inngest) couldn't be queried, not that the run failed.
+`{ "id": "…", "status": "RUNNING"|"COMPLETED"|"FAILED", "totals": {"profiles":0,"saved":0,"duplicates":0,"failed":0}|null, "logs": ["…"], "error": "…"|null }`. Returns `404` when the job is unknown — note the `local` runner keeps history in memory, so restarts lose it. GitHub Actions runner history/results are read from Supabase `scraper_jobs`. `502` means the job service/store couldn't be queried, not that the run failed.
 
 ### `/api/inngest` (Inngest only)
 

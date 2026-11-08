@@ -118,7 +118,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">API Key</label>
+                            <label id="api-key-label" class="block text-xs font-medium text-muted-foreground mb-1">API Key</label>
                             <input type="password" id="api-key-input" placeholder="••••••••••••••••" class="w-full rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                         </div>
                     </form>
@@ -302,6 +302,10 @@
             $('posts-per-profile').value = s.postsPerProfile;
             $('auto-run-toggle').checked = s.scheduleEnabled;
             $('interval-minutes').value = s.intervalMinutes;
+            const keyless = s.provider === 'crawlee';
+            $('api-key-label').textContent = keyless ? 'API Key (not required for Crawlee)' : 'API Key';
+            $('api-key-input').disabled = keyless;
+            $('api-key-input').placeholder = keyless ? 'Public pages only; no key used' : '••••••••••••••••';
             nextRunAt = s.nextRunAt;
             updateCountdown();
 

@@ -9,6 +9,7 @@
     "ui": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/server.js",
     "posts": "node --no-warnings=ExperimentalWarning src/list.js",
     "inngest:serve": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning src/inngest/serve.js",
+    "github-actions:worker": "node src/jobs/github-actions-worker.js",
     "build": "tailwindcss -i src/styles.css -o public/styles.css --minify",
     "build:css": "tailwindcss -i src/styles.css -o public/styles.css --watch",
     "test": "node --test --experimental-test-module-mocks --no-warnings=ExperimentalWarning test/*.test.js"
@@ -20,7 +21,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
     "@trigger.dev/sdk": "4.8.3",
-    "inngest": "^4.26.2"
+    "crawlee": "^3.18.2",
+    "inngest": "^4.26.2",
+    "playwright": "^1.65.0"
   },
   "devDependencies": {
     "@trigger.dev/build": "4.8.3",

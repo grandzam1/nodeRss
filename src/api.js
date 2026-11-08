@@ -23,7 +23,7 @@ const state = async (db) => {
       nextRunAt: schedule.next_run_at,
       runner: runnerName,
     },
-    running: isBusy(),
+    running: await isBusy(),
   };
 };
 
@@ -74,7 +74,9 @@ export async function handleApi(method, pathname, body = {}, ctx = {}) {
       await setSetting(db, 'postsPerProfile', n);
     }
     if (scheduleEnabled !== undefined || intervalMinutes !== undefined) await saveSchedule({ scheduleEnabled, intervalMinutes }, db);
-    if (typeof apiKey === 'string' && apiKey.trim()) await setSetting(db, provider.settingsKey, apiKey.trim());
+    if (provider.requiresApiKey !== false && typeof apiKey === 'string' && apiKey.trim()) {
+      await setSetting(db, provider.settingsKey, apiKey.trim());
+    }
     await refreshSchedule();
     return { status: 200, data: await state(db) };
   }

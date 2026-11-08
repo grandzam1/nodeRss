@@ -24,9 +24,19 @@ export const scrapePosts = inngest.createFunction(
       const allowed = await step.run('validate-schedule', async () => scheduledRunAllowed(await readSchedule(), event.data));
       if (!allowed) return { totals: { profiles: 0, saved: 0, duplicates: 0, failed: 0 }, logs: ['Scheduled run invalidated by settings change.'] };
     }
+    if (process.env.JOB_RUNNER === 'github-actions') {
+      const { jobId } = await step.run('dispatch-github-actions-worker', async () => {
+        const { submitRun } = await import('../jobs/github-actions.js');
+        return submitRun();
+      });
+      return {
+        totals: { profiles: 0, saved: 0, duplicates: 0, failed: 0 },
+        logs: [`Dispatched GitHub Actions scraper job ${jobId}. Results are recorded in Supabase scraper_jobs.`],
+      };
+    }
     const { profiles, postsPerProfile } = await step.run('load-profiles', async () => {
       const db = openDb();
-      if (!(await getApiKey(db))) throw new NonRetriableError(`No ${provider.label} API key set.`);
+      if (provider.requiresApiKey !== false && !(await getApiKey(db))) throw new NonRetriableError(`No ${provider.label} API key set.`);
       await seedProfiles(db);
       return { profiles: await listProfiles(db), postsPerProfile: await getPostsPerProfile(db) };
     });
@@ -38,7 +48,7 @@ export const scrapePosts = inngest.createFunction(
       const r = await step.run(`scrape ${profile.platform}/${profile.username}`, async () => {
         const db = openDb();
         const apiKey = await getApiKey(db); // read here so the key never lands in step history
-        if (!apiKey) throw new NonRetriableError(`No ${provider.label} API key set.`);
+        if (provider.requiresApiKey !== false && !apiKey) throw new NonRetriableError(`No ${provider.label} API key set.`);
         const stepLogs = [];
         const result = await scrapeProfile(db, profile, {
           apiKey,
